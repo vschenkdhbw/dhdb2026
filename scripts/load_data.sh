@@ -7,6 +7,7 @@ cd "$(dirname "$0")/.."
 DATA_TAG="${DATA_TAG:-data-v1}"
 ASSET="${ASSET:-se-minimal.tar}"
 DATA_DIR="data"
+SERVER_DATA_DIR="${SERVER_DATA_DIR:-/repo/data}"   # derselbe Ordner aus Sicht des db-Containers
 
 REPO="${GITHUB_REPOSITORY:-}"
 if [ -z "$REPO" ]; then
@@ -28,9 +29,11 @@ echo "Warte auf PostgreSQL ..."
 for i in $(seq 1 60); do pg_isready -q && break; sleep 1; done
 
 psql -q -v ON_ERROR_STOP=1 -f db/schema.sql
+# Serverseitiges COPY statt psql-\copy: psql bricht bei einer Datenzeile "\." ab
+# (Ende-Markierung des COPY-Protokolls), auch innerhalb eines CSV-Feldes.
 for t in users posts comments votes post_links tags; do
-  echo "  \\copy $t"
-  psql -q -v ON_ERROR_STOP=1 -c "\\copy $t FROM PROGRAM 'gzip -dc $DATA_DIR/$t.csv.gz' WITH (FORMAT csv, HEADER true)"
+  echo "  COPY $t"
+  psql -q -v ON_ERROR_STOP=1 -c "COPY $t FROM PROGRAM 'gzip -dc $SERVER_DATA_DIR/$t.csv.gz' WITH (FORMAT csv, HEADER true)"
 done
 echo "Primärschlüssel und Statistiken ..."
 psql -q -v ON_ERROR_STOP=1 -f db/post_load.sql
