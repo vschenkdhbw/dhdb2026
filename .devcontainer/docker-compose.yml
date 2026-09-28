@@ -1,0 +1,28 @@
+services:
+  app:
+    image: mcr.microsoft.com/devcontainers/python:3.12-bookworm
+    volumes:
+      - ../..:/workspaces:cached
+    command: sleep infinity
+    # teilt das Netz mit db: PostgreSQL ist im Arbeitscontainer unter localhost:5432 erreichbar
+    network_mode: service:db
+    environment:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: stackexchange
+
+  db:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    shm_size: 256mb          # sonst scheitern parallele Abfragen an /dev/shm (64 MB Default)
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: stackexchange
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
